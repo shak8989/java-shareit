@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.exception.ConflictException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.user.dto.UserDto;
 
 import java.util.List;
@@ -11,24 +12,41 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
     private final UserRepository userRepository;
 
     @Override
     public UserDto create(UserDto userDto) {
         checkEmailUnique(userDto.getEmail(), null);
-        return UserMapper.toDto(userRepository.save(UserMapper.toModel(userDto)));
+        return UserMapper.toDto(
+                userRepository.save(UserMapper.toModel(userDto))
+        );
     }
 
     @Override
     public UserDto update(long userId, UserDto userDto) {
         User user = findUser(userId);
+
         if (userDto.getName() != null) {
+            if (userDto.getName().isBlank()) {
+                throw new ValidationException(
+                        "User name must not be blank"
+                );
+            }
+
             user.setName(userDto.getName());
         }
+
         if (userDto.getEmail() != null) {
+            if (userDto.getEmail().isBlank()
+                    || !userDto.getEmail().contains("@")) {
+                throw new ValidationException("Invalid email");
+            }
+
             checkEmailUnique(userDto.getEmail(), userId);
             user.setEmail(userDto.getEmail());
         }
+
         return UserMapper.toDto(userRepository.save(user));
     }
 
@@ -39,7 +57,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserDto> getAll() {
-        return userRepository.findAll().stream().map(UserMapper::toDto).toList();
+        return userRepository.findAll().stream()
+                .map(UserMapper::toDto)
+                .toList();
     }
 
     @Override
@@ -50,12 +70,18 @@ public class UserServiceImpl implements UserService {
 
     private User findUser(long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User with id " + userId + " not found"
+                        )
+                );
     }
 
     private void checkEmailUnique(String email, Long userId) {
         if (userRepository.existsByEmailAndIdNot(email, userId)) {
-            throw new ConflictException("Email is already in use: " + email);
+            throw new ConflictException(
+                    "Email is already in use: " + email
+            );
         }
     }
 }

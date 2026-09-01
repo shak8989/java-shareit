@@ -18,7 +18,6 @@ public class ItemMapper {
 
     public Item toModel(ItemDto itemDto) {
         return Item.builder()
-                .id(itemDto.getId())
                 .name(itemDto.getName())
                 .description(itemDto.getDescription())
                 .available(itemDto.getAvailable())

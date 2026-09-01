@@ -1,5 +1,5 @@
 package ru.practicum.shareit.item;
-
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +16,7 @@ import ru.practicum.shareit.validation.Create;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/items")
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class ItemController {
     @PostMapping
     public ItemDto create(@RequestHeader(USER_ID_HEADER) long userId,
                           @Validated(Create.class) @RequestBody ItemDto itemDto) {
+        log.info("Creating item by user {}", userId);
         return itemService.create(userId, itemDto);
     }
 
@@ -33,21 +35,25 @@ public class ItemController {
     public ItemDto update(@RequestHeader(USER_ID_HEADER) long userId,
                           @PathVariable long itemId,
                           @RequestBody ItemDto itemDto) {
+        log.info("Updating item {} by user {}", itemId, userId);
         return itemService.update(userId, itemId, itemDto);
     }
 
     @GetMapping("/{itemId}")
     public ItemDto getById(@PathVariable long itemId) {
+        log.info("Getting item {}", itemId);
         return itemService.getById(itemId);
     }
 
     @GetMapping
     public List<ItemDto> getByOwner(@RequestHeader(USER_ID_HEADER) long userId) {
+        log.info("Getting items of user {}", userId);
         return itemService.getByOwner(userId);
     }
 
     @GetMapping("/search")
     public List<ItemDto> search(@RequestParam(defaultValue = "") String text) {
+        log.info("Searching items by text '{}'", text);
         return itemService.search(text);
     }
 }
