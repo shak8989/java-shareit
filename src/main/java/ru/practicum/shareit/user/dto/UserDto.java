@@ -14,6 +14,8 @@ import ru.practicum.shareit.validation.Create;
 @AllArgsConstructor
 public class UserDto {
     private Long id;
+
+    @NotBlank(groups = Create.class)
     private String name;
 
     @NotBlank(groups = Create.class)
