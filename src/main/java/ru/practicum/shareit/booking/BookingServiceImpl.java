@@ -29,9 +29,6 @@ public class BookingServiceImpl implements BookingService {
     public BookingDto create(long userId, BookingCreateDto bookingDto) {
         User booker = findUser(userId);
         validateDates(bookingDto);
-        if (bookingDto.getItemId() == null) {
-            throw new ValidationException("Item id must be specified");
-        }
         Item item = findItem(bookingDto.getItemId());
         if (!Boolean.TRUE.equals(item.getAvailable())) {
             throw new ValidationException("Item is unavailable");
@@ -39,13 +36,7 @@ public class BookingServiceImpl implements BookingService {
         if (item.getOwner().getId().equals(userId)) {
             throw new ForbiddenException("Owner cannot book own item");
         }
-        Booking booking = Booking.builder()
-                .start(bookingDto.getStart())
-                .end(bookingDto.getEnd())
-                .item(item)
-                .booker(booker)
-                .status(BookingStatus.WAITING)
-                .build();
+        Booking booking = BookingMapper.toModel(bookingDto, item, booker);
         return BookingMapper.toDto(bookingRepository.save(booking));
     }
 
@@ -126,12 +117,6 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void validateDates(BookingCreateDto dto) {
-        if (dto == null || dto.getStart() == null || dto.getEnd() == null) {
-            throw new ValidationException("Booking start and end must be specified");
-        }
-        if (!dto.getStart().isAfter(LocalDateTime.now())) {
-            throw new ValidationException("Booking start must be in the future");
-        }
         if (!dto.getEnd().isAfter(dto.getStart())) {
             throw new ValidationException("Booking end must be after start");
         }

@@ -17,8 +17,10 @@ import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -79,9 +81,35 @@ public class ItemServiceImpl implements ItemService {
     public List<ItemDto> getByOwner(long userId) {
         findUser(userId);
 
-        return itemRepository.findByOwnerIdOrderById(userId).stream()
-                .map(item -> toViewDto(item, true))
-                .toList();
+        List<Item> items = itemRepository.findByOwnerIdOrderById(userId);
+        if (items.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> itemIds = items.stream().map(Item::getId).toList();
+        Map<Long, List<Booking>> bookingsByItem = bookingRepository
+                .findByItemIdInAndStatusOrderByStartAsc(itemIds, BookingStatus.APPROVED).stream()
+                .collect(Collectors.groupingBy(booking -> booking.getItem().getId()));
+        Map<Long, List<Comment>> commentsByItem = commentRepository
+                .findByItemIdInOrderByCreatedAsc(itemIds).stream()
+                .collect(Collectors.groupingBy(comment -> comment.getItem().getId()));
+        LocalDateTime now = LocalDateTime.now();
+
+        return items.stream().map(item -> {
+            ItemDto dto = ItemMapper.toDto(item);
+            dto.setComments(commentsByItem.getOrDefault(item.getId(), List.of()).stream()
+                    .map(CommentMapper::toDto)
+                    .toList());
+            for (Booking booking : bookingsByItem.getOrDefault(item.getId(), List.of())) {
+                if (!booking.getStart().isAfter(now)) {
+                    dto.setLastBooking(toItemBookingDto(booking));
+                } else {
+                    dto.setNextBooking(toItemBookingDto(booking));
+                    break;
+                }
+            }
+            return dto;
+        }).toList();
     }
 
     @Override
@@ -100,26 +128,19 @@ public class ItemServiceImpl implements ItemService {
     public CommentDto addComment(long userId, long itemId, CommentCreateDto commentDto) {
         User author = findUser(userId);
         Item item = findItem(itemId);
-        if (commentDto == null || commentDto.getText() == null || commentDto.getText().isBlank()) {
-            throw new ValidationException("Comment text must not be blank");
-        }
+        LocalDateTime now = LocalDateTime.now();
         if (!bookingRepository.hasCompletedBooking(itemId, userId, BookingStatus.APPROVED,
-                LocalDateTime.now())) {
+                now)) {
             throw new ValidationException("Comment is allowed only after a completed booking");
         }
-        Comment comment = Comment.builder()
-                .text(commentDto.getText())
-                .item(item)
-                .author(author)
-                .created(LocalDateTime.now())
-                .build();
-        return toCommentDto(commentRepository.save(comment));
+        Comment comment = CommentMapper.toModel(commentDto, item, author, now);
+        return CommentMapper.toDto(commentRepository.save(comment));
     }
 
     private ItemDto toViewDto(Item item, boolean includeBookings) {
         ItemDto dto = ItemMapper.toDto(item);
         dto.setComments(commentRepository.findByItemIdOrderByCreatedAsc(item.getId()).stream()
-                .map(this::toCommentDto)
+                .map(CommentMapper::toDto)
                 .toList());
         if (includeBookings) {
             LocalDateTime now = LocalDateTime.now();
@@ -137,15 +158,7 @@ public class ItemServiceImpl implements ItemService {
         return ItemBookingDto.builder()
                 .id(booking.getId())
                 .bookerId(booking.getBooker().getId())
-                .build();
-    }
-
-    private CommentDto toCommentDto(Comment comment) {
-        return CommentDto.builder()
-                .id(comment.getId())
-                .text(comment.getText())
-                .authorName(comment.getAuthor().getName())
-                .created(comment.getCreated())
+                .start(booking.getStart())
                 .build();
     }
 

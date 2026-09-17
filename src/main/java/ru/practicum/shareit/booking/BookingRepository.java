@@ -1,5 +1,6 @@
 package ru.practicum.shareit.booking;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,6 +37,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     Optional<Booking> findFirstByItemIdAndStatusAndStartAfterOrderByStartAsc(
             long itemId, BookingStatus status, LocalDateTime now);
+
+    @EntityGraph(attributePaths = {"item", "booker"})
+    List<Booking> findByItemIdInAndStatusOrderByStartAsc(List<Long> itemIds, BookingStatus status);
 
     @Query("select count(b) > 0 from Booking b where b.item.id = :itemId "
             + "and b.booker.id = :userId and b.status = :status and b.end < :now")
