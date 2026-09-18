@@ -78,7 +78,10 @@ public class UserServiceImpl implements UserService {
     }
 
     private void checkEmailUnique(String email, Long userId) {
-        if (userRepository.existsByEmailAndIdNot(email, userId)) {
+        boolean exists = userId == null
+                ? userRepository.existsByEmail(email)
+                : userRepository.existsByEmailAndIdNot(email, userId);
+        if (exists) {
             throw new ConflictException(
                     "Email is already in use: " + email
             );
