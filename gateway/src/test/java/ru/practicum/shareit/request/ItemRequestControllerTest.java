@@ -10,6 +10,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,17 @@ class ItemRequestControllerTest {
     void missingHeaderIsBadRequest() throws Exception {
         mvc.perform(get("/requests")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").exists());
         verifyNoInteractions(client);
+    }
+
+    @Test
+    void serverConnectionFailureReturnsBadGateway() throws Exception {
+        when(client.getOwnRequests(1L)).thenThrow(new ResourceAccessException("Connection refused"));
+
+        mvc.perform(get("/requests").header("X-Sharer-User-Id", 1))
+                .andExpect(status().isBadGateway())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value("ShareIt server is unavailable"));
+        verify(client).getOwnRequests(1L);
     }
 
 }
